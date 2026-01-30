@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>카드 뒤집기 게임</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- 헤더 -->
+        <header class="header">
+            <h1>🃏 카드 뒤집기 게임</h1>
+            <div class="difficulty-selector">
+                <button class="difficulty-btn active" data-difficulty="easy">쉬움 (4쌍)</button>
+                <button class="difficulty-btn" data-difficulty="medium">보통 (8쌍)</button>
+                <button class="difficulty-btn" data-difficulty="hard">어려움 (12쌍)</button>
+            </div>
+        </header>
+
+        <!-- 게임 정보 바 -->
+        <div class="game-info">
+            <div class="info-item">
+                <span class="info-label">시도</span>
+                <span class="info-value" id="moves">0</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">시간</span>
+                <span class="info-value" id="timer">00:00</span>
+            </div>
+            <button class="restart-btn" id="restartBtn">🔄 재시작</button>
+        </div>
+
+        <!-- 카드 그리드 -->
+        <div class="card-grid" id="cardGrid"></div>
+
+        <!-- 리더보드 -->
+        <section class="leaderboard">
+            <h2>🏆 리더보드</h2>
+            <div class="leaderboard-tabs">
+                <button class="tab-btn active" data-tab="easy">쉬움</button>
+                <button class="tab-btn" data-tab="medium">보통</button>
+                <button class="tab-btn" data-tab="hard">어려움</button>
+            </div>
+            <table class="leaderboard-table">
+                <thead>
+                    <tr>
+                        <th>순위</th>
+                        <th>이름</th>
+                        <th>시도</th>
+                        <th>시간</th>
+                    </tr>
+                </thead>
+                <tbody id="leaderboardBody">
+                    <tr>
+                        <td colspan="4" class="loading">로딩 중...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+    </div>
+
+    <!-- 완료 모달 -->
+    <div class="modal" id="completeModal">
+        <div class="modal-content">
+            <h2>🎉 축하합니다!</h2>
+            <p class="result-text">
+                <span id="resultMoves">0</span>번의 시도로<br>
+                <span id="resultTime">00:00</span> 만에 완료했습니다!
+            </p>
+            <div class="modal-form">
+                <input type="text" id="playerName" placeholder="이름을 입력하세요" maxlength="20">
+                <button class="save-btn" id="saveScoreBtn">점수 저장</button>
+            </div>
+            <button class="play-again-btn" id="playAgainBtn">다시 플레이</button>
+        </div>
+    </div>
+
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/config.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
