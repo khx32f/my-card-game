@@ -1,3 +1,84 @@
+// ============================================
+// 보안 유틸리티 함수
+// ============================================
+
+// Debounce 함수 (Rate Limiting)
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// 플레이어 이름 검증
+function validatePlayerName(name) {
+    if (!name || typeof name !== 'string') {
+        return { valid: false, error: '이름을 입력해주세요.' };
+    }
+
+    const trimmed = name.trim();
+    
+    if (trimmed.length === 0) {
+        return { valid: false, error: '이름을 입력해주세요.' };
+    }
+    
+    if (trimmed.length > 20) {
+        return { valid: false, error: '이름은 20자 이내로 입력해주세요.' };
+    }
+
+    // 허용 문자: 한글, 영문, 숫자, 공백, 일부 특수문자(_-)
+    const allowedPattern = /^[가-힣a-zA-Z0-9\s_-]+$/;
+    if (!allowedPattern.test(trimmed)) {
+        return { valid: false, error: '이름에 허용되지 않는 문자가 포함되어 있습니다.' };
+    }
+
+    // 금지 패턴 (SQL 인젝션, 스크립트 등)
+    const dangerousPatterns = [
+        /[<>]/,
+        /javascript:/i,
+        /on\w+=/i,
+        /['";]/
+    ];
+    
+    for (const pattern of dangerousPatterns) {
+        if (pattern.test(trimmed)) {
+            return { valid: false, error: '이름에 허용되지 않는 문자가 포함되어 있습니다.' };
+        }
+    }
+
+    return { valid: true, sanitized: trimmed };
+}
+
+// 게임 점수 검증
+function validateGameScore(moves, time, difficulty) {
+    // moves 검증: 양수, 최소 난이도별 쌍 수 이상
+    const minMoves = DIFFICULTY_PAIRS[difficulty] || 4;
+    if (!Number.isInteger(moves) || moves < minMoves || moves > 9999) {
+        return { valid: false, error: '유효하지 않은 게임 데이터입니다.' };
+    }
+
+    // time 검증: 양수, 합리적인 범위 (1초 ~ 1시간)
+    if (!Number.isInteger(time) || time < 1 || time > 3600) {
+        return { valid: false, error: '유효하지 않은 게임 데이터입니다.' };
+    }
+
+    // difficulty 검증
+    if (!['easy', 'medium', 'hard'].includes(difficulty)) {
+        return { valid: false, error: '유효하지 않은 난이도입니다.' };
+    }
+
+    return { valid: true };
+}
+
+// ============================================
+// 게임 상태
+// ============================================
+
 // 게임 상태
 let gameState = {
     cards: [],
@@ -234,10 +315,41 @@ function hideModal() {
     completeModal.classList.remove('show');
 }
 
-// 점수 저장
-async function saveScore() {
-    const playerName = playerNameInput.value.trim() || 'NoName';
+// 점수 저장 (Rate Limiting 적용)
+let isSaving = false;
 
+async function saveScore() {
+    // 중복 저장 방지
+    if (isSaving) {
+        return;
+    }
+
+    // 게임 완료 상태 확인
+    if (gameState.matchedPairs !== gameState.totalPairs) {
+        alert('게임을 먼저 완료해주세요.');
+        return;
+    }
+
+    // 플레이어 이름 검증
+    const nameValidation = validatePlayerName(playerNameInput.value || 'NoName');
+    if (!nameValidation.valid) {
+        alert(nameValidation.error);
+        return;
+    }
+    const playerName = nameValidation.sanitized;
+
+    // 게임 점수 검증
+    const scoreValidation = validateGameScore(
+        gameState.moves,
+        gameState.timer,
+        gameState.difficulty
+    );
+    if (!scoreValidation.valid) {
+        alert(scoreValidation.error);
+        return;
+    }
+
+    isSaving = true;
     saveScoreBtn.disabled = true;
     saveScoreBtn.textContent = '저장 중...';
 
@@ -264,21 +376,35 @@ async function saveScore() {
         });
 
     } catch (error) {
-        console.error('점수 저장 실패:', error);
+        // 프로덕션에서는 상세 에러 숨김
+        if (process?.env?.NODE_ENV === 'development') {
+            console.error('점수 저장 실패:', error);
+        }
         alert('점수 저장에 실패했습니다. 다시 시도해주세요.');
         saveScoreBtn.disabled = false;
         saveScoreBtn.textContent = '점수 저장';
+    } finally {
+        // 3초 후 저장 가능
+        setTimeout(() => {
+            isSaving = false;
+        }, 3000);
     }
 }
 
-// 리더보드 로드
-async function loadLeaderboard(difficulty) {
+// 리더보드 로드 (실제 구현)
+async function loadLeaderboardImpl(difficulty) {
+    // 난이도 검증
+    if (!['easy', 'medium', 'hard'].includes(difficulty)) {
+        leaderboardBody.innerHTML = '<tr><td colspan="4" class="empty">잘못된 난이도</td></tr>';
+        return;
+    }
+
     leaderboardBody.innerHTML = '<tr><td colspan="4" class="loading">로딩 중...</td></tr>';
 
     try {
         const { data, error } = await supabaseClient
             .from('game_scores')
-            .select('*')
+            .select('player_name, moves, time_seconds')  // 필요한 컬럼만 선택
             .eq('difficulty', difficulty)
             .order('moves', { ascending: true })
             .order('time_seconds', { ascending: true })
@@ -286,7 +412,7 @@ async function loadLeaderboard(difficulty) {
 
         if (error) throw error;
 
-        if (data.length === 0) {
+        if (!data || data.length === 0) {
             leaderboardBody.innerHTML = '<tr><td colspan="4" class="empty">아직 기록이 없습니다.</td></tr>';
             return;
         }
@@ -294,17 +420,23 @@ async function loadLeaderboard(difficulty) {
         leaderboardBody.innerHTML = data.map((score, index) => `
             <tr>
                 <td>${getRankEmoji(index + 1)}</td>
-                <td>${escapeHtml(score.player_name)}</td>
-                <td>${score.moves}회</td>
-                <td>${formatTime(score.time_seconds)}</td>
+                <td>${escapeHtml(score.player_name || 'Unknown')}</td>
+                <td>${Number.isInteger(score.moves) ? score.moves : 0}회</td>
+                <td>${formatTime(Number.isInteger(score.time_seconds) ? score.time_seconds : 0)}</td>
             </tr>
         `).join('');
 
     } catch (error) {
-        console.error('리더보드 로드 실패:', error);
+        // 프로덕션에서는 상세 에러 숨김
+        if (typeof process !== 'undefined' && process?.env?.NODE_ENV === 'development') {
+            console.error('리더보드 로드 실패:', error);
+        }
         leaderboardBody.innerHTML = '<tr><td colspan="4" class="empty">로드 실패</td></tr>';
     }
 }
+
+// 리더보드 로드 (Debounce 적용 - 1초)
+const loadLeaderboard = debounce(loadLeaderboardImpl, 1000);
 
 // 순위 이모지
 function getRankEmoji(rank) {
