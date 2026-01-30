@@ -1,0 +1,11 @@
+{
+  "name": "card-flip-game",
+  "version": "1.0.0",
+  "description": "카드 뒤집기 메모리 게임 with Supabase 리더보드",
+  "scripts": {
+    "build": "node build.js"
+  },
+  "keywords": ["game", "memory", "card-flip", "supabase"],
+  "author": "",
+  "license": "MIT"
+}

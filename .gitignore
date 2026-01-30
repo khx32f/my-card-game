@@ -1,0 +1,23 @@
+# 환경 설정 파일 (API 키 포함)
+js/config.js
+
+# Vercel
+.vercel
+
+# 환경 변수
+.env
+.env.local
+.env.*.local
+
+# 로그
+*.log
+
+# OS 파일
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
